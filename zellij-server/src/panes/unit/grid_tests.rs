@@ -6102,3 +6102,77 @@ fn csi_5n_status_query_still_handled_locally() {
         "DSR 5 must still produce its local 'all good' reply"
     );
 }
+
+#[test]
+pub fn osc9_notification() {
+    let mut vte_parser = vte::Parser::new();
+    let sixel_image_store = Rc::new(RefCell::new(SixelImageStore::default()));
+    let terminal_emulator_color_codes = Rc::new(RefCell::new(HashMap::new()));
+    let debug = false;
+    let arrow_fonts = true;
+    let styled_underlines = true;
+    let osc8_hyperlinks = true;
+    let explicitly_disable_kitty_keyboard_protocol = false;
+    let mut grid = Grid::new(
+        134,
+        64,
+        Rc::new(RefCell::new(Palette::default())),
+        terminal_emulator_color_codes,
+        Rc::new(RefCell::new(LinkHandler::new())),
+        Rc::new(RefCell::new(None)),
+        sixel_image_store,
+        Style::default(),
+        debug,
+        arrow_fonts,
+        styled_underlines,
+        osc8_hyperlinks,
+        explicitly_disable_kitty_keyboard_protocol,
+    );
+    let fixture_name = "osc9_notification";
+    let content = read_fixture(fixture_name);
+    for byte in content {
+        vte_parser.advance(&mut grid, byte);
+    }
+    assert!(grid.pending_osc_passthrough.is_some());
+    assert_eq!(
+        grid.pending_osc_passthrough.as_ref().unwrap(),
+        "\u{1b}]9;Test notification\u{1b}\\"
+    );
+}
+
+#[test]
+pub fn osc777_notification() {
+    let mut vte_parser = vte::Parser::new();
+    let sixel_image_store = Rc::new(RefCell::new(SixelImageStore::default()));
+    let terminal_emulator_color_codes = Rc::new(RefCell::new(HashMap::new()));
+    let debug = false;
+    let arrow_fonts = true;
+    let styled_underlines = true;
+    let osc8_hyperlinks = true;
+    let explicitly_disable_kitty_keyboard_protocol = false;
+    let mut grid = Grid::new(
+        134,
+        64,
+        Rc::new(RefCell::new(Palette::default())),
+        terminal_emulator_color_codes,
+        Rc::new(RefCell::new(LinkHandler::new())),
+        Rc::new(RefCell::new(None)),
+        sixel_image_store,
+        Style::default(),
+        debug,
+        arrow_fonts,
+        styled_underlines,
+        osc8_hyperlinks,
+        explicitly_disable_kitty_keyboard_protocol,
+    );
+    let fixture_name = "osc777_notification";
+    let content = read_fixture(fixture_name);
+    for byte in content {
+        vte_parser.advance(&mut grid, byte);
+    }
+    assert!(grid.pending_osc_passthrough.is_some());
+    assert_eq!(
+        grid.pending_osc_passthrough.as_ref().unwrap(),
+        "\u{1b}]777;notify;Title;Body message\u{1b}\\"
+    );
+}

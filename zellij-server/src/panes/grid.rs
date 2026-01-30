@@ -630,6 +630,7 @@ pub struct Grid {
     pub is_scrolled: bool,
     pub link_handler: Rc<RefCell<LinkHandler>>,
     pub ring_bell: bool,
+    pub pending_osc_passthrough: Option<String>,
     scrollback_buffer_lines: usize,
     pub mouse_mode: MouseMode,
     pub mouse_tracking: MouseTracking,
@@ -959,6 +960,7 @@ impl Grid {
             is_scrolled: false,
             link_handler,
             ring_bell: false,
+            pending_osc_passthrough: None,
             scrollback_buffer_lines: 0,
             mouse_mode: MouseMode::default(),
             mouse_tracking: MouseTracking::default(),
@@ -1562,7 +1564,7 @@ impl Grid {
         if self.lock_renders {
             return Ok(None);
         }
-        let raw_vte_output = String::new();
+        let mut raw_vte_output = String::new();
 
         let (mut character_chunks, sixel_image_chunks) = self.read_changes(content_x, content_y);
 
@@ -1653,6 +1655,9 @@ impl Grid {
                     character_chunk.add_selection_and_colors(*hs, content_x, content_y);
                 }
             }
+        }
+        if let Some(osc_passthrough) = self.pending_osc_passthrough.take() {
+            raw_vte_output.push_str(&osc_passthrough);
         }
         return Ok(Some((
             character_chunks,
@@ -3773,6 +3778,34 @@ impl Perform for Grid {
                         self.pending_desktop_notifications
                             .push((payload, terminator.to_string()));
                     }
+                }
+            },
+
+            // OSC 9: Desktop notification (iTerm2, Windows Terminal, etc.)
+            // Format: ESC]9;message\
+            b"9" => {
+                if params.len() >= 2 {
+                    let message = params[1..]
+                        .iter()
+                        .flat_map(|x| str::from_utf8(x))
+                        .collect::<Vec<&str>>()
+                        .join(";");
+                    self.pending_osc_passthrough =
+                        Some(format!("\u{1b}]9;{}{}", message, terminator));
+                }
+            },
+
+            // OSC 777: urxvt-style notification
+            // Format: ESC]777;notify;title;body\
+            b"777" => {
+                if params.len() >= 2 {
+                    let message = params[1..]
+                        .iter()
+                        .flat_map(|x| str::from_utf8(x))
+                        .collect::<Vec<&str>>()
+                        .join(";");
+                    self.pending_osc_passthrough =
+                        Some(format!("\u{1b}]777;{}{}", message, terminator));
                 }
             },
 
